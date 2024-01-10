@@ -5,14 +5,27 @@ import math
 @dataclass
 class AugmentedMeteor(Meteor):
     distance: float = None
+    futur_positions: List[Vector] = None
+    currentTick: int = None
+    lockedIn: bool = False  # Cannon has that meteor in sight
 
     def __post_init__(self):
         self.distance = self.calculate_distance(self.position)
+        self.futur_positions = self.get_futur_positions(self.position, self.velocity, self.currentTick)
 
     @staticmethod
     def calculate_distance(position: Vector):
         ship_position = Vector(140, 400)   ## TO PATCH with cannon.position
-        return math.sqrt( (position.x - ship_position.x)**2 + (position.y - ship_position.y)**2 )
+        if position.x < 140:
+            return 99999
+        else:
+            return math.sqrt( (position.x - ship_position.x)**2 + (position.y - ship_position.y)**2 )
+
+    @staticmethod
+    def get_futur_positions(position: Vector, velocity: Vector, currentTick: int):
+        return [Vector(x=position.x + velocity.x * i, y=position.y + velocity.y * i) for i in range(1, 1000 - (currentTick+1))]
+
+
 
 @dataclass
 class AugmentedCannon(Cannon):
@@ -57,18 +70,16 @@ class Bot:
         critere = lambda x: x.meteorType == MeteorType.Large
         return list(filter(critere, game_message.meteors))
 
-
     # -------------------------
     """
-    Getters for meteor by distance
+    Cannon predictions (statistics and shit..)
+        or law and physics.
     """
     # -------------------------
-    def calculate_distance(self, meteor: Meteor) -> float:
+    def missile_can_kill(self, cannon: AugmentedCannon, target: AugmentedMeteor):
         """
-        Get closest meteor
+        return true if a missile can kill its target, false otherwise
         """
-
-
         pass
 
 
@@ -85,13 +96,33 @@ class Bot:
         #closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
 
         # -----------
-        #   fonction qui découpe vitesse du missile en x et y
+        #   Création augmentedCannon
         # -----------
         augmented_cannon = AugmentedCannon(**vars(game_message.cannon))
 
+        #closest_meteor = min(augmented_large_meteors, key=lambda x: x.distance)
+
+        # Stratégie :
+        # -----------
+        #   1. Créer les positions futures des météorites
+        # -----------
+        if len(self.get_large_meteors(game_message)) != 0:
+            augmented_large_meteors = [AugmentedMeteor(**vars(meteor), currentTick=game_message.tick) for meteor in self.get_large_meteors(game_message)]
+            closest_meteor = min(augmented_large_meteors, key=lambda x: x.distance)
+
+        # -----------
+        #   2. Switch case :
+        #   Pour le métérore le plus près:
+        #       Si not lockedIn, lookat meteor position et lock-in
+        #       Si lockedIn ET missile ne se rend pas à temps, rotate le cannon
+        #       Si lockedIn ET not on cooldown ET missile se rend à temps, SHOOT
+        # -----------
+        if closest_meteor.lockedIn == False:
+            closest_meteor.lockedIn = True
+            return [LookAtAction(target=closest_meteor.position)]
 
         return [
-            #LookAtAction(target=closest_meteor.position),
+            LookAtAction(target=closest_meteor.position),
             RotateAction(angle=5 * self.direction),
             #ShootAction(),
         ]
