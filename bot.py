@@ -6,6 +6,25 @@ import math
 class AugmentedMeteor(Meteor):
     distance: float = None
 
+    def __post_init__(self):
+        self.distance = self.calculate_distance(self.position)
+
+    @staticmethod
+    def calculate_distance(position: Vector):
+        ship_position = Vector(140, 400)   ## TO PATCH with cannon.position
+        return math.sqrt( (position.x - ship_position.x)**2 + (position.y - ship_position.y)**2 )
+
+@dataclass
+class AugmentedCannon(Cannon):
+    velocity: Vector = None
+
+    def __post_init__(self):
+        self.velocity = self.calculate_velocity(self.orientation)
+
+    @staticmethod
+    def calculate_velocity(orientation: float):
+        return Vector(x=20 * math.cos(math.radians(orientation)), y=20 * math.sin(math.radians(orientation))) ## Magic numbers
+
 class Bot:
     def __init__(self):
         self.direction = 1
@@ -41,25 +60,16 @@ class Bot:
 
     # -------------------------
     """
-    Getters for meteors by distance
+    Getters for meteor by distance
     """
     # -------------------------
     def calculate_distance(self, meteor: Meteor) -> float:
         """
-        Calculate distance between the ship and the meteor.
+        Get closest meteor
         """
-        # Implement your distance calculation here
-        ship_position = Vector(200, 400)
 
-        return math.sqrt( (meteor.position.x - ship_position.x)**2 + (meteor.position.y - ship_position.y)**2 )
 
-    def get_distances_meteors(self, meteors: List[Meteor]) -> List[AugmentedMeteor]:
-        """
-        For each meteor, calculate the distance from the ship and return a list of AugmentedMeteors.
-        """
-        augmented_meteors = [AugmentedMeteor(meteorType=meteor.meteorType, id=meteor.id, position=meteor.position, size=meteor.size, velocity=meteor.velocity, distance=self.calculate_distance(meteor)) for meteor in meteors]
-
-        return augmented_meteors
+        pass
 
 
     def get_next_move(self, game_message: GameMessage):
@@ -71,10 +81,17 @@ class Bot:
         elif game_message.cannon.orientation <= -45:
             self.direction = 1
 
-        test = self.get_distances_meteors(self.get_large_meteors(game_message))
+        #augmented_meteors = [AugmentedMeteor(meteorType=meteor.meteorType, id=meteor.id, position=meteor.position, size=meteor.size, velocity=meteor.velocity) for meteor in self.get_large_meteors(game_message)]
+        #closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
+
+        # -----------
+        #   fonction qui découpe vitesse du missile en x et y
+        # -----------
+        augmented_cannon = AugmentedCannon(**vars(game_message.cannon))
+
 
         return [
-            LookAtAction(target=game_message.meteors[0].position),
-            #RotateAction(angle=15 * self.direction),
-            ShootAction(),
+            #LookAtAction(target=closest_meteor.position),
+            RotateAction(angle=5 * self.direction),
+            #ShootAction(),
         ]
