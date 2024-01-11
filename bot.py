@@ -64,14 +64,14 @@ class Bot:
         returns every small meteors
         """
         critere = lambda x: x.meteorType == MeteorType.Small
-        return filter(critere, game_message.meteors)
+        return list(filter(critere, game_message.meteors))
     
     def get_medium_meteors(self, game_message: GameMessage):
         """
         returns every medium meteors
         """
         critere = lambda x: x.meteorType == MeteorType.Medium
-        return filter(critere, game_message.meteors)
+        return list(filter(critere, game_message.meteors))
 
     def get_large_meteors(self, game_message: GameMessage):
         """
@@ -158,22 +158,26 @@ class Bot:
         #   1. Switch case :
         # -----------
         if 'augmented_meteors' in locals():
-            # Choose the closest meteor, but if last tagged choose random
-            closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
-            if list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0].lastShot == True:
-                closest_meteor = random.choice(augmented_meteors)
-                
-            # Operations
-            if augmented_cannon.cooldown > 0:
-                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
-            elif augmented_cannon.cooldown == 0:
-                # Tag cleanup for every meteor
-                for meteor in meteor_list:
-                    meteor.lastShot = False
-                # Tag the latest meteor
-                value = list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0]
-                value.lastShot = True
-                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
+            # Filter out meteors that are near the ship
+            filtered_meteors = list(filter(lambda x: x.position.x > 1000, augmented_meteors))
+            if len(filtered_meteors) != 0:
+                # Choose the closest meteor, but if last tagged choose random
+                closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
+                if list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0].lastShot == True:
+                    if len(self.get_small_meteors(game_message) + self.get_medium_meteors(game_message)) != 0:
+                        closest_meteor = random.choice([AugmentedMeteor(**vars(meteor), currentTick=game_message.tick) for meteor in self.get_small_meteors(game_message) + self.get_medium_meteors(game_message)])
+
+                # Operations
+                if augmented_cannon.cooldown > 0:
+                    return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
+                elif augmented_cannon.cooldown == 0:
+                    # Tag cleanup for every meteor
+                    for meteor in meteor_list:
+                        meteor.lastShot = False
+                    # Tag the latest meteor
+                    value = list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0]
+                    value.lastShot = True
+                    return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
 
 
 
