@@ -1,6 +1,7 @@
 from game_message import *
 from actions import *
 import math
+import random
 
 @dataclass
 class AugmentedMeteor(Meteor):
@@ -155,14 +156,24 @@ class Bot:
         # Stratégie :
         # -----------
         #   1. Switch case :
-        #   Pour le métérore le plus près:
-        #       Si not lockedIn, lookat meteor position et lock-in
-        #       Si lockedIn ET missile ne se rend pas à temps, rotate le cannon
-        #       Si lockedIn ET not on cooldown ET missile se rend à temps, SHOOT
         # -----------
         if 'augmented_meteors' in locals():
+            # Choose the closest meteor, but if last tagged choose random
             closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
-            return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
+            if list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0].lastShot == True:
+                closest_meteor = random.choice(augmented_meteors)
+                
+            # Operations
+            if augmented_cannon.cooldown > 0:
+                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
+            elif augmented_cannon.cooldown == 0:
+                # Tag cleanup for every meteor
+                for meteor in meteor_list:
+                    meteor.lastShot = False
+                # Tag the latest meteor
+                value = list(filter(lambda x: x.id == closest_meteor.id, meteor_list))[0]
+                value.lastShot = True
+                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
 
 
 
