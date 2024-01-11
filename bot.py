@@ -8,6 +8,7 @@ class AugmentedMeteor(Meteor):
     futur_positions: List[Vector] = None
     currentTick: int = None
     lockedIn: bool = False  # Cannon has that meteor in sight
+    lastShot: bool = False # Cannon shot on meteor
 
     def __post_init__(self):
         self.distance = self.calculate_distance(self.position)
@@ -25,6 +26,7 @@ class AugmentedMeteor(Meteor):
     def get_futur_positions(position: Vector, velocity: Vector, currentTick: int):
         return [Vector(x=position.x + velocity.x * i, y=position.y + velocity.y * i) for i in range(1, 1000 - (currentTick+1))]
 
+meteor_list: List[AugmentedMeteor] = []
 
 @dataclass
 class AugmentedCannon(Cannon):
@@ -128,44 +130,41 @@ class Bot:
         """
         Here is where the magic happens, for now the moves are not very good. I bet you can do better ;)
         """
-        if game_message.cannon.orientation >= 45:
-            self.direction = -1
-        elif game_message.cannon.orientation <= -45:
-            self.direction = 1
-
-        #augmented_meteors = [AugmentedMeteor(meteorType=meteor.meteorType, id=meteor.id, position=meteor.position, size=meteor.size, velocity=meteor.velocity) for meteor in self.get_large_meteors(game_message)]
-        #closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
-
         # -----------
         #   Création augmentedCannon
         # -----------
         augmented_cannon = AugmentedCannon(**vars(game_message.cannon), currentTick=game_message.tick)
 
-        #closest_meteor = min(augmented_large_meteors, key=lambda x: x.distance)
+        # -----------
+        #   Mise à jour liste globale pour field lastShot
+        #   N'utilise le pas pour des opérations, juste réf sur lastShot
+        # -----------
+        for meteor in game_message.meteors:
+            if not any(m.id == meteor.id for m in meteor_list):
+                meteor_list.append(AugmentedMeteor(**vars(meteor), currentTick=game_message.tick))
+        for meteor in meteor_list:
+            if not any(m.id == meteor.id for m in game_message.meteors):
+                meteor_list.remove(meteor)
+
+        # -----------
+        #   Création augmentedMeteor
+        # -----------
+        if len(game_message.meteors) != 0:
+            augmented_meteors = [AugmentedMeteor(**vars(meteor), currentTick=game_message.tick) for meteor in game_message.meteors]
 
         # Stratégie :
         # -----------
-        #   1. Créer les positions futures des météorites
-        # -----------
-        if len(self.get_large_meteors(game_message)) != 0:
-            augmented_large_meteors = [AugmentedMeteor(**vars(meteor), currentTick=game_message.tick) for meteor in self.get_large_meteors(game_message)]
-            closest_meteor = min(augmented_large_meteors, key=lambda x: x.distance)
-
-        # -----------
-        #   2. Switch case :
+        #   1. Switch case :
         #   Pour le métérore le plus près:
         #       Si not lockedIn, lookat meteor position et lock-in
         #       Si lockedIn ET missile ne se rend pas à temps, rotate le cannon
         #       Si lockedIn ET not on cooldown ET missile se rend à temps, SHOOT
         # -----------
-        if 'closest_meteor' in locals():
-            if closest_meteor.lockedIn == False:
-                closest_meteor.lockedIn = True
-                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
-        #self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)
-        return [ShootAction()]
-        #return [
-        #    LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)),
-        #    #RotateAction(angle=5 * self.direction),
-        #    ShootAction(),
-        #]
+        if 'augmented_meteors' in locals():
+            closest_meteor = min(augmented_meteors, key=lambda x: x.distance)
+            return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
+
+
+
+        return []
+
