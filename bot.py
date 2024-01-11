@@ -110,17 +110,17 @@ class Bot:
         can_kill = False
         tick = 0
 
-        while can_kill == False:
+        while tick < len(target.futur_positions) and can_kill == False:
             # Check how many ticks it takes for the missile to reach that meteor futur_position distance
-            missile_numberOfTicks = -1
-            if len(target.futur_positions) > tick:
-                missile_numberOfTicks = round(target.calculate_distance(target.futur_positions[tick]) / game_message.constants.rockets.speed)
+            missile_numberOfTicks = round(target.calculate_distance(target.futur_positions[tick]) / game_message.constants.rockets.speed)
 
             if round(missile_numberOfTicks) != tick:
                 tick += 1
             else:
                 can_kill = True
-        return target.futur_positions[tick]
+        if can_kill == True:
+            return target.futur_positions[tick]
+        pass
         
 
 
@@ -158,13 +158,14 @@ class Bot:
         #       Si lockedIn ET missile ne se rend pas à temps, rotate le cannon
         #       Si lockedIn ET not on cooldown ET missile se rend à temps, SHOOT
         # -----------
-        #if closest_meteor.lockedIn == False:
-        #    closest_meteor.lockedIn = True
-        #    return [LookAtAction(target=closest_meteor.position)]
+        if 'closest_meteor' in locals():
+            if closest_meteor.lockedIn == False:
+                closest_meteor.lockedIn = True
+                return [LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)), ShootAction()]
         #self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)
-
-        return [
-            LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)),
-            #RotateAction(angle=5 * self.direction),
-            ShootAction(),
-        ]
+        return [ShootAction()]
+        #return [
+        #    LookAtAction(target=self.get_killing_lookatVector(augmented_cannon, closest_meteor, game_message)),
+        #    #RotateAction(angle=5 * self.direction),
+        #    ShootAction(),
+        #]
